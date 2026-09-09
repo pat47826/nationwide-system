@@ -25,14 +25,12 @@ left_space, content_container, right_space = st.columns([1, 4, 1])
 with content_container:
     st.subheader("🖼️ อัปโหลดรูปภาพรายงานการปฏิบัติงาน")
 
-# รายชื่อจังหวัดทั้งหมดสำหรับทำ Dropdown
 all_provinces = [
     "กรุงเทพมหานคร", "เชียงใหม่", "เชียงราย", "ขอนแก่น", 
     "อุดรธานี", "นครราชสีมา", "สงขลา", "ภูเก็ต", "สุราษฎร์ธานี",
     "ชลบุรี", "ระยอง", "นนทบุรี", "ปทุมธานี", "สมุทรปราการ"
 ]
 
-# ข้อมูลจำลองรายชื่อจอแยกตามภาค
 screen_data = {
     "กรุงเทพฯ และปริมณฑล": ["จอแยกอโศก", "จอสยามพารากอน", "จอสีลมคอมเพล็กซ์"],
     "ภาคเหนือ": ["จอประตูท่าแพ", "จอนิมมานเหมินท์", "จอเซ็นทรัลเชียงราย"],
@@ -42,22 +40,32 @@ screen_data = {
 
 regions = list(screen_data.keys())
 
+# ตัวแปรนับรอบ (Form Counter) สำหรับบังคับล้างค่าทุก widget พร้อมกัน
+if "form_reset_counter" not in st.session_state:
+    st.session_state.form_reset_counter = 0
+
 @st.dialog("🎉 แจ้งเตือน")
 def success_dialog():
     st.success("Success! อัปโหลดรูปภาพสำเร็จ")
     st.balloons()
     if st.button("ตกลง", use_container_width=True, key="btn_dialog_ok"):
+        # เพิ่มค่า Counter เพื่อบังคับให้ Streamlit สร้างฟอร์มใหม่และล้างค่าเก่าทิ้งทั้งหมด
+        st.session_state.form_reset_counter += 1
+        st.session_state.show_success_popup = False
         st.rerun()
 
 with content_container:
-    # 1. Dropdown เลือกภูมิภาค (ขึ้น Select... เป็นค่าเริ่มต้น)
+    # ใช้ suffix ด้วย counter เพื่อบังคับเคลียร์ค่าใน Widget ทั้งหมดเมื่อค่าเปลี่ยน
+    f_key = st.session_state.form_reset_counter
+
+    # 1. Dropdown เลือกภูมิภาค
     st.markdown("### 1. เลือกชื่อจอ")
     selected_region = st.selectbox(
         "เลือกภูมิภาค", 
         regions, 
         index=None, 
         placeholder="Select...", 
-        key="reg"
+        key=f"reg_{f_key}"
     )
     
     if selected_region:
@@ -67,7 +75,7 @@ with content_container:
             available_screens, 
             index=None, 
             placeholder="Select...", 
-            key="scr"
+            key=f"scr_{f_key}"
         )
     else:
         selected_screen = st.selectbox(
@@ -75,17 +83,17 @@ with content_container:
             ["กรุณาเลือกภูมิภาคก่อน"], 
             index=0, 
             disabled=True, 
-            key="scr_disabled"
+            key=f"scr_disabled_{f_key}"
         )
     
-    # 2. Location (Dropdown จังหวัด ขึ้น Select... เป็นค่าเริ่มต้น)
+    # 2. Location (Dropdown จังหวัด)
     st.markdown("### 2. Location (จังหวัด)")
     selected_province = st.selectbox(
         "เลือกจังหวัดสถานที่ตั้ง", 
         all_provinces, 
         index=None, 
         placeholder="Select...", 
-        key="prov"
+        key=f"prov_{f_key}"
     )
     
     # 3. ช่องอัปโหลดรูปภาพ
@@ -94,7 +102,7 @@ with content_container:
         "อัปโหลดรูปภาพ (เลือกได้สูงสุด 5 รูป / รองรับไฟล์ภาพกล้องความละเอียดสูง)", 
         type=["png", "jpg", "jpeg", "RAW", "cr2", "nef"], 
         accept_multiple_files=True,
-        key="up_files",
+        key=f"up_files_{f_key}",
         help="รองรับไฟล์ภาพขนาดใหญ่จากกล้องโปร"
     )
     
@@ -103,14 +111,19 @@ with content_container:
     # 4. ปุ่มกดส่งข้อมูล
     col1, col_btn, col3 = st.columns([1.7, 2, 1.3])
     with col_btn:
-        submitted = st.button("🚀 ส่งข้อมูล / อัปโหลด", type="primary", key="submit_btn")
+        submitted = st.button("🚀 ส่งข้อมูล / อัปโหลด", type="primary", key=f"submit_btn_{f_key}")
     
     if submitted:
         if not selected_region or not selected_province or not uploaded_files:
             st.warning("⚠️ กรุณากรอกข้อมูลและอัปโหลดรูปภาพให้ครบถ้วนก่อนกดส่งครับ")
         else:
+            st.session_state.summary_data = {
+                "region": selected_region,
+                "screen": selected_screen,
+                "province": selected_province,
+                "files": uploaded_files
+            }
             st.session_state.show_success_popup = True
 
 if st.session_state.get("show_success_popup", False):
-    st.session_state.show_success_popup = False
     success_dialog()
